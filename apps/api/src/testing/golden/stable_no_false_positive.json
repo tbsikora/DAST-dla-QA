@@ -1,0 +1,23 @@
+{
+  "report": {
+    "totalTests": 6,
+    "totalErrors": 0,
+    "totalSuspicious": 0
+  },
+  "byType": {
+    "SQLi": {
+      "total": 4,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "XSS": {
+      "total": 2,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [],
+  "transportErrors": []
+}

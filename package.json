@@ -1,0 +1,20 @@
+{
+  "name": "dast-qa",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "yarn workspaces run dev",
+    "dev:web": "yarn workspace web dev",
+    "dev:api": "yarn workspace @dast-qa/api dev",
+    "build:web": "yarn workspace web build",
+    "test:scanner": "yarn workspace @dast-qa/api test:scanner",
+    "test:scanner:update": "yarn workspace @dast-qa/api test:scanner:update"
+  },
+  "dependencies": {
+    "form-data": "^4.0.5",
+    "lowdb": "^7.0.1"
+  }
+}

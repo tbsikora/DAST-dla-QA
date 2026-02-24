@@ -1,0 +1,70 @@
+{
+  "report": {
+    "totalTests": 7,
+    "totalErrors": 0,
+    "totalSuspicious": 2
+  },
+  "byType": {
+    "HEADER_INJECTION": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "OPEN_REDIRECT": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "PATH_TRAVERSAL": {
+      "total": 1,
+      "suspicious": 1,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "SQLi": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "SSRF": {
+      "total": 1,
+      "suspicious": 1,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "TEMPLATE_INJECTION": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "XSS": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 1,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [
+    {
+      "testType": "PATH_TRAVERSAL",
+      "method": "GET",
+      "path": "/files/read",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SSRF",
+      "method": "GET",
+      "path": "/fetch",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    }
+  ],
+  "transportErrors": []
+}

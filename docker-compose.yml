@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: tomsec-api
+    environment:
+      PORT: "4000"
+      DAST_HTTP_DEBUG_CAPTURE: "1"
+      DAST_HTTP_TRACE: "0"
+      DAST_DB_FILE: "/app/apps/api/data/scans.json"
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./apps/api/data:/app/apps/api/data
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: tomsec-web
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+

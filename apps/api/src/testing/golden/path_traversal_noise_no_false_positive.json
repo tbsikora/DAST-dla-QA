@@ -1,0 +1,17 @@
+{
+  "report": {
+    "totalTests": 2,
+    "totalErrors": 0,
+    "totalSuspicious": 0
+  },
+  "byType": {
+    "PATH_TRAVERSAL": {
+      "total": 2,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [],
+  "transportErrors": []
+}

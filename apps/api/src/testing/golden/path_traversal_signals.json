@@ -1,0 +1,26 @@
+{
+  "report": {
+    "totalTests": 2,
+    "totalErrors": 0,
+    "totalSuspicious": 1
+  },
+  "byType": {
+    "PATH_TRAVERSAL": {
+      "total": 2,
+      "suspicious": 1,
+      "inconclusive": 0,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [
+    {
+      "testType": "PATH_TRAVERSAL",
+      "method": "GET",
+      "path": "/files/read",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    }
+  ],
+  "transportErrors": []
+}

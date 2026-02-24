@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/.vite
+**/.cache
+.git
+.gitignore
+.vscode
+.DS_Store
+.tmp
+.yarn-cache
+storage
+apps/api/data
+

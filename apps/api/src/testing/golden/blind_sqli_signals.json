@@ -1,0 +1,42 @@
+{
+  "report": {
+    "totalTests": 28,
+    "totalErrors": 0,
+    "totalSuspicious": 3
+  },
+  "byType": {
+    "SQLi": {
+      "total": 28,
+      "suspicious": 3,
+      "inconclusive": 8,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 500,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 500,
+      "verdict": "suspicious"
+    }
+  ],
+  "transportErrors": []
+}

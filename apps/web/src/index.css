@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap");
+
+:root { color-scheme: light; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: #f4f6fb;
+  color: #1c2333;
+}

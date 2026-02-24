@@ -1,0 +1,172 @@
+{
+  "report": {
+    "totalTests": 73,
+    "totalErrors": 0,
+    "totalSuspicious": 14
+  },
+  "byType": {
+    "AUTH": {
+      "total": 1,
+      "suspicious": 1,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "HEADER_INJECTION": {
+      "total": 12,
+      "suspicious": 2,
+      "inconclusive": 4,
+      "error": 0
+    },
+    "OPEN_REDIRECT": {
+      "total": 4,
+      "suspicious": 2,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "PATH_TRAVERSAL": {
+      "total": 2,
+      "suspicious": 1,
+      "inconclusive": 0,
+      "error": 0
+    },
+    "SQLi": {
+      "total": 28,
+      "suspicious": 3,
+      "inconclusive": 8,
+      "error": 0
+    },
+    "SSRF": {
+      "total": 4,
+      "suspicious": 2,
+      "inconclusive": 2,
+      "error": 0
+    },
+    "TEMPLATE_INJECTION": {
+      "total": 8,
+      "suspicious": 2,
+      "inconclusive": 2,
+      "error": 0
+    },
+    "XSS": {
+      "total": 14,
+      "suspicious": 1,
+      "inconclusive": 9,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [
+    {
+      "testType": "AUTH",
+      "method": "GET",
+      "path": "/private/data",
+      "location": "header",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "HEADER_INJECTION",
+      "method": "GET",
+      "path": "/header-test",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "HEADER_INJECTION",
+      "method": "GET",
+      "path": "/header-test",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "OPEN_REDIRECT",
+      "method": "GET",
+      "path": "/redirect",
+      "location": "query",
+      "status": 302,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "OPEN_REDIRECT",
+      "method": "GET",
+      "path": "/redirect",
+      "location": "query",
+      "status": 302,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "PATH_TRAVERSAL",
+      "method": "GET",
+      "path": "/files/read",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 500,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/search",
+      "location": "query",
+      "status": 500,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SSRF",
+      "method": "GET",
+      "path": "/fetch",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "SSRF",
+      "method": "GET",
+      "path": "/fetch",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "TEMPLATE_INJECTION",
+      "method": "GET",
+      "path": "/template/render",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "TEMPLATE_INJECTION",
+      "method": "GET",
+      "path": "/template/render",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    },
+    {
+      "testType": "XSS",
+      "method": "GET",
+      "path": "/render",
+      "location": "query",
+      "status": 200,
+      "verdict": "suspicious"
+    }
+  ],
+  "transportErrors": []
+}

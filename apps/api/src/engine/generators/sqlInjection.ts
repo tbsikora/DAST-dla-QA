@@ -1,0 +1,638 @@
+import type { EndpointDetail } from "../../openapi";
+
+export type SqlTest = {
+  id: string;
+  kind: "sql-injection";
+  strategy?: "classic" | "blind_time" | "blind_boolean";
+  method: string;
+  path: string;
+  payload: string;
+  location: "body" | "query" | "path" | "header" | "cookie";
+  body?: any;
+  query?: Record<string, string>;
+  originalPath?: string;
+  headers?: Record<string, string>;
+  contentType?: string;
+  expectedResponseSchema?: any;
+  secondaryPath?: string;
+  secondaryBody?: any;
+  secondaryQuery?: Record<string, string>;
+  secondaryHeaders?: Record<string, string>;
+};
+
+const SAFE_TEXT_PAYLOADS = ["'", "\"", "'--", "\"--", "' OR '1'='1"];
+const SAFE_NUM_PAYLOADS = ["1", "1+0", "1-0", "1 OR 1=1"];
+const SORT_PAYLOADS = ["id", "id desc", "id,1"];
+const BLIND_TIME_TEXT_PAYLOADS = ["' OR SLEEP(1)--", "'; WAITFOR DELAY '0:0:1'--"];
+const BLIND_TIME_NUM_PAYLOADS = ["1 OR SLEEP(1)", "1; WAITFOR DELAY '0:0:1'"];
+const BLIND_BOOL_TEXT = {
+  truePayload: "' OR '1'='1",
+  falsePayload: "' OR '1'='2"
+};
+const BLIND_BOOL_NUM = {
+  truePayload: "1 OR 1=1",
+  falsePayload: "1 OR 1=2"
+};
+
+function id() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+export function generateSqlInjectionTests(
+  endpoints: EndpointDetail[],
+  opts?: { maxPayloads?: number; maxBodyFields?: number; maxParamPayloads?: number }
+): SqlTest[] {
+  const tests: SqlTest[] = [];
+  const maxPayloads = opts?.maxPayloads ?? SAFE_TEXT_PAYLOADS.length;
+  const maxBodyFields = opts?.maxBodyFields ?? 6;
+  const maxParamPayloads = opts?.maxParamPayloads ?? maxPayloads;
+  const textPayloads = SAFE_TEXT_PAYLOADS.slice(0, maxPayloads);
+  const numPayloads = SAFE_NUM_PAYLOADS.slice(0, maxPayloads);
+  const sortPayloads = SORT_PAYLOADS.slice(0, maxParamPayloads);
+  const blindTimeTextPayload = BLIND_TIME_TEXT_PAYLOADS[0];
+  const blindTimeNumPayload = BLIND_TIME_NUM_PAYLOADS[0];
+  for (const ep of endpoints) {
+    if (!["POST", "PUT", "PATCH", "GET", "DELETE"].includes(ep.method)) continue;
+    const base = buildBaseRequest(ep);
+    const paramTypes = new Map<string, string>();
+    for (const p of ep.parameters ?? []) {
+      if (p?.name && typeof p?.schema?.type === "string") paramTypes.set(p.name, p.schema.type);
+    }
+    const allowBody = ["POST", "PUT", "PATCH"].includes(ep.method);
+    const bodyPaths = findStringPaths(base.body).slice(0, maxBodyFields);
+
+    if (bodyPaths.length && base.body && allowBody) {
+      for (const payload of textPayloads) {
+        for (const path of bodyPaths) {
+          const body = cloneJson(base.body);
+          setValueAtPath(body, path, payload);
+          tests.push({
+            id: id(),
+            kind: "sql-injection",
+            method: ep.method,
+            path: base.resolvedPath,
+            originalPath: ep.path,
+            payload,
+            location: "body",
+            body,
+            query: base.query,
+            headers: base.headers,
+            contentType: base.contentType,
+            expectedResponseSchema: ep.responseBodySchema
+          });
+        }
+      }
+    }
+
+    for (const param of base.queryParams) {
+      const payloads = payloadsForParam(param, paramTypes.get(param), {
+        text: textPayloads,
+        num: numPayloads,
+        sort: sortPayloads
+      });
+      for (const payload of payloads) {
+        tests.push({
+          id: id(),
+          kind: "sql-injection",
+          method: ep.method,
+          path: base.resolvedPath,
+          originalPath: ep.path,
+          payload,
+          location: "query",
+          body: allowBody ? base.body : undefined,
+          query: { ...base.query, [param]: payload },
+          headers: base.headers,
+          contentType: base.contentType,
+          expectedResponseSchema: ep.responseBodySchema
+        });
+      }
+
+      const type = paramTypes.get(param);
+      tests.push(
+        buildBlindTimeSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "query",
+          param,
+          payload: type === "integer" || type === "number" ? blindTimeNumPayload : blindTimeTextPayload,
+          allowBody
+        })
+      );
+      tests.push(
+        buildBlindBooleanSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "query",
+          param,
+          ...(type === "integer" || type === "number" ? BLIND_BOOL_NUM : BLIND_BOOL_TEXT),
+          allowBody
+        })
+      );
+    }
+
+    for (const param of base.pathParams) {
+      const payloads = payloadsForParam(param, paramTypes.get(param), {
+        text: textPayloads,
+        num: numPayloads,
+        sort: sortPayloads
+      });
+      for (const payload of payloads) {
+        const resolved = resolvePathParam(ep.path, param, payload);
+        tests.push({
+          id: id(),
+          kind: "sql-injection",
+          method: ep.method,
+          path: resolved,
+          originalPath: ep.path,
+          payload,
+          location: "path",
+          body: allowBody ? base.body : undefined,
+          query: base.query,
+          headers: base.headers,
+          contentType: base.contentType,
+          expectedResponseSchema: ep.responseBodySchema
+        });
+      }
+
+      const type = paramTypes.get(param);
+      tests.push(
+        buildBlindTimeSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "path",
+          param,
+          payload: type === "integer" || type === "number" ? blindTimeNumPayload : blindTimeTextPayload,
+          allowBody
+        })
+      );
+      tests.push(
+        buildBlindBooleanSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "path",
+          param,
+          ...(type === "integer" || type === "number" ? BLIND_BOOL_NUM : BLIND_BOOL_TEXT),
+          allowBody
+        })
+      );
+    }
+
+    for (const param of base.headerParams) {
+      const payloads = payloadsForParam(param, paramTypes.get(param), {
+        text: textPayloads,
+        num: numPayloads,
+        sort: sortPayloads
+      });
+      for (const payload of payloads) {
+        tests.push({
+          id: id(),
+          kind: "sql-injection",
+          method: ep.method,
+          path: base.resolvedPath,
+          originalPath: ep.path,
+          payload,
+          location: "header",
+          body: allowBody ? base.body : undefined,
+          query: base.query,
+          headers: { ...base.headers, [param]: payload },
+          contentType: base.contentType,
+          expectedResponseSchema: ep.responseBodySchema
+        });
+      }
+
+      const type = paramTypes.get(param);
+      tests.push(
+        buildBlindTimeSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "header",
+          param,
+          payload: type === "integer" || type === "number" ? blindTimeNumPayload : blindTimeTextPayload,
+          allowBody
+        })
+      );
+      tests.push(
+        buildBlindBooleanSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "header",
+          param,
+          ...(type === "integer" || type === "number" ? BLIND_BOOL_NUM : BLIND_BOOL_TEXT),
+          allowBody
+        })
+      );
+    }
+
+    for (const param of base.cookieParams) {
+      const payloads = payloadsForParam(param, paramTypes.get(param), {
+        text: textPayloads,
+        num: numPayloads,
+        sort: sortPayloads
+      });
+      for (const payload of payloads) {
+        tests.push({
+          id: id(),
+          kind: "sql-injection",
+          method: ep.method,
+          path: base.resolvedPath,
+          originalPath: ep.path,
+          payload,
+          location: "cookie",
+          body: allowBody ? base.body : undefined,
+          query: base.query,
+          headers: mergeCookieHeader(base.headers, param, payload),
+          contentType: base.contentType,
+          expectedResponseSchema: ep.responseBodySchema
+        });
+      }
+
+      const type = paramTypes.get(param);
+      tests.push(
+        buildBlindTimeSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "cookie",
+          param,
+          payload: type === "integer" || type === "number" ? blindTimeNumPayload : blindTimeTextPayload,
+          allowBody
+        })
+      );
+      tests.push(
+        buildBlindBooleanSqlTest({
+          id: id(),
+          ep,
+          base,
+          location: "cookie",
+          param,
+          ...(type === "integer" || type === "number" ? BLIND_BOOL_NUM : BLIND_BOOL_TEXT),
+          allowBody
+        })
+      );
+    }
+  }
+  return tests;
+}
+
+type BaseRequest = {
+  body?: any;
+  query: Record<string, string>;
+  queryParams: string[];
+  pathParams: string[];
+  headerParams: string[];
+  cookieParams: string[];
+  resolvedPath: string;
+  headers?: Record<string, string>;
+  contentType?: string;
+};
+
+function buildBaseRequest(ep: EndpointDetail): BaseRequest {
+  const body = ep.requestBodySchema ? buildExampleFromSchema(ep.requestBodySchema, 0) : undefined;
+  const contentType = pickContentType(ep.requestBodyContentTypes);
+  const query: Record<string, string> = {};
+  const queryParams: string[] = [];
+  const pathParams: string[] = [];
+  const headerParams: string[] = [];
+  const cookieParams: string[] = [];
+  const headers: Record<string, string> = {};
+  const cookies: Record<string, string> = {};
+
+  for (const p of ep.parameters ?? []) {
+    if (p.in === "query") {
+      queryParams.push(p.name);
+      query[p.name] = exampleValue(p) ?? "test";
+    }
+    if (p.in === "path") {
+      pathParams.push(p.name);
+    }
+    if (p.in === "header") {
+      headerParams.push(p.name);
+      headers[p.name] = exampleValue(p) ?? "test";
+    }
+    if (p.in === "cookie") {
+      cookieParams.push(p.name);
+      cookies[p.name] = exampleValue(p) ?? "test";
+    }
+  }
+
+  const resolvedPath = resolvePath(ep.path, ep.parameters);
+  const cookieHeader = buildCookieHeader(cookies);
+  if (cookieHeader) headers.Cookie = cookieHeader;
+  return {
+    body,
+    query,
+    queryParams,
+    pathParams,
+    headerParams,
+    cookieParams,
+    resolvedPath,
+    headers,
+    contentType
+  };
+}
+
+function resolvePath(path: string, params?: EndpointDetail["parameters"]) {
+  if (!params || !params.length) return path;
+  let out = path;
+  for (const p of params) {
+    if (p.in !== "path") continue;
+    const value = encodeURIComponent(exampleValue(p) ?? "1");
+    out = out.replace(`{${p.name}}`, value);
+  }
+  return out;
+}
+
+function resolvePathParam(path: string, param: string, payload: string) {
+  const value = encodeURIComponent(payload);
+  return path.replace(`{${param}}`, value);
+}
+
+function exampleValue(p: any) {
+  if (p?.example != null) return String(p.example);
+  if (p?.default != null) return String(p.default);
+  const schema = p?.schema;
+  if (schema?.example != null) return String(schema.example);
+  if (schema?.default != null) return String(schema.default);
+  if (schema?.enum && schema.enum.length) return String(schema.enum[0]);
+  return undefined;
+}
+
+function pickContentType(types?: string[]) {
+  if (!types || !types.length) return "application/json";
+  if (types.includes("application/json")) return "application/json";
+  if (types.includes("application/x-www-form-urlencoded")) return "application/x-www-form-urlencoded";
+  return types[0];
+}
+
+function buildExampleFromSchema(schema: any, depth: number): any {
+  if (!schema || depth > 3) return undefined;
+  if (schema.$ref) return undefined;
+  if (Array.isArray(schema.oneOf) || Array.isArray(schema.anyOf) || Array.isArray(schema.allOf)) {
+    const next = schema.oneOf?.[0] ?? schema.anyOf?.[0] ?? schema.allOf?.[0];
+    return buildExampleFromSchema(next, depth + 1);
+  }
+  if (schema.example != null) return schema.example;
+  if (schema.default != null) return schema.default;
+  if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0];
+
+  const type = schema.type;
+  if (type === "string") return schema.format === "date" ? "2018-01-01" : "test";
+  if (type === "integer") return 1;
+  if (type === "number") return 1.1;
+  if (type === "boolean") return true;
+  if (type === "array") {
+    const item = buildExampleFromSchema(schema.items, depth + 1);
+    return item === undefined ? [] : [item];
+  }
+  if (type === "object" || schema.properties) {
+    const obj: Record<string, any> = {};
+    const props = schema.properties ?? {};
+    const required: string[] = Array.isArray(schema.required) ? schema.required : [];
+    for (const key of required) {
+      if (props[key] == null) continue;
+      obj[key] = buildExampleFromSchema(props[key], depth + 1);
+    }
+    return obj;
+  }
+  return undefined;
+}
+
+function findStringPaths(obj: any, prefix = ""): string[] {
+  if (obj == null) return [];
+  if (typeof obj === "string") return [prefix];
+  if (Array.isArray(obj)) {
+    const paths: string[] = [];
+    for (let i = 0; i < obj.length; i++) {
+      const p = findStringPaths(obj[i], `${prefix}[${i}]`);
+      paths.push(...p);
+    }
+    return paths;
+  }
+  if (typeof obj === "object") {
+    const paths: string[] = [];
+    for (const key of Object.keys(obj)) {
+      const next = prefix ? `${prefix}.${key}` : key;
+      paths.push(...findStringPaths(obj[key], next));
+    }
+    return paths;
+  }
+  return [];
+}
+
+function setValueAtPath(obj: any, path: string, value: any) {
+  if (!path) return;
+  const parts = path.replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    if (cur[key] == null) cur[key] = {};
+    cur = cur[key];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+function cloneJson<T>(v: T): T {
+  return v == null ? v : JSON.parse(JSON.stringify(v));
+}
+
+function payloadsForParam(
+  name: string,
+  type: string | undefined,
+  lists: { text: string[]; num: string[]; sort: string[] }
+) {
+  const lowered = name.toLowerCase();
+  if (lowered.includes("sort") || lowered.includes("order")) return lists.sort;
+  if (type === "integer" || type === "number") return lists.num;
+  return lists.text;
+}
+
+function buildBlindTimeSqlTest(args: {
+  id: string;
+  ep: EndpointDetail;
+  base: BaseRequest;
+  location: "query" | "path" | "header" | "cookie";
+  param: string;
+  payload: string;
+  allowBody: boolean;
+}): SqlTest {
+  const { id, ep, base, location, param, payload, allowBody } = args;
+  if (location === "query") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_time",
+      method: ep.method,
+      path: base.resolvedPath,
+      originalPath: ep.path,
+      payload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: { ...base.query, [param]: payload },
+      headers: base.headers,
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  if (location === "path") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_time",
+      method: ep.method,
+      path: resolvePathParam(ep.path, param, payload),
+      originalPath: ep.path,
+      payload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: base.query,
+      headers: base.headers,
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  if (location === "header") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_time",
+      method: ep.method,
+      path: base.resolvedPath,
+      originalPath: ep.path,
+      payload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: base.query,
+      headers: { ...base.headers, [param]: payload },
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  return {
+    id,
+    kind: "sql-injection",
+    strategy: "blind_time",
+    method: ep.method,
+    path: base.resolvedPath,
+    originalPath: ep.path,
+    payload,
+    location,
+    body: allowBody ? base.body : undefined,
+    query: base.query,
+    headers: mergeCookieHeader(base.headers, param, payload),
+    contentType: base.contentType,
+    expectedResponseSchema: ep.responseBodySchema
+  };
+}
+
+function buildBlindBooleanSqlTest(args: {
+  id: string;
+  ep: EndpointDetail;
+  base: BaseRequest;
+  location: "query" | "path" | "header" | "cookie";
+  param: string;
+  truePayload: string;
+  falsePayload: string;
+  allowBody: boolean;
+}): SqlTest {
+  const { id, ep, base, location, param, truePayload, falsePayload, allowBody } = args;
+  if (location === "query") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_boolean",
+      method: ep.method,
+      path: base.resolvedPath,
+      originalPath: ep.path,
+      payload: truePayload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: { ...base.query, [param]: truePayload },
+      secondaryQuery: { ...base.query, [param]: falsePayload },
+      headers: base.headers,
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  if (location === "path") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_boolean",
+      method: ep.method,
+      path: resolvePathParam(ep.path, param, truePayload),
+      secondaryPath: resolvePathParam(ep.path, param, falsePayload),
+      originalPath: ep.path,
+      payload: truePayload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: base.query,
+      headers: base.headers,
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  if (location === "header") {
+    return {
+      id,
+      kind: "sql-injection",
+      strategy: "blind_boolean",
+      method: ep.method,
+      path: base.resolvedPath,
+      originalPath: ep.path,
+      payload: truePayload,
+      location,
+      body: allowBody ? base.body : undefined,
+      query: base.query,
+      headers: { ...base.headers, [param]: truePayload },
+      secondaryHeaders: { ...base.headers, [param]: falsePayload },
+      contentType: base.contentType,
+      expectedResponseSchema: ep.responseBodySchema
+    };
+  }
+  return {
+    id,
+    kind: "sql-injection",
+    strategy: "blind_boolean",
+    method: ep.method,
+    path: base.resolvedPath,
+    originalPath: ep.path,
+    payload: truePayload,
+    location,
+    body: allowBody ? base.body : undefined,
+    query: base.query,
+    headers: mergeCookieHeader(base.headers, param, truePayload),
+    secondaryHeaders: mergeCookieHeader(base.headers, param, falsePayload),
+    contentType: base.contentType,
+    expectedResponseSchema: ep.responseBodySchema
+  };
+}
+
+function buildCookieHeader(cookies: Record<string, string>) {
+  const entries = Object.entries(cookies);
+  if (!entries.length) return "";
+  return entries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("; ");
+}
+
+function parseCookieHeader(header?: string) {
+  if (!header) return {};
+  const out: Record<string, string> = {};
+  for (const part of header.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
+    if (!k) continue;
+    out[k] = decodeURIComponent(rest.join("=") || "");
+  }
+  return out;
+}
+
+function mergeCookieHeader(headers: Record<string, string> | undefined, key: string, value: string) {
+  const base = parseCookieHeader(headers?.Cookie);
+  base[key] = value;
+  const merged = buildCookieHeader(base);
+  return { ...(headers ?? {}), Cookie: merged };
+}

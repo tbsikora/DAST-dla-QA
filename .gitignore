@@ -1,0 +1,38 @@
+node_modules/
+.yarn-cache/
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Env files
+.env
+.env.local
+.env.*.local
+apps/web/.env
+apps/web/.env.local
+apps/web/.env.*
+!apps/web/.env.example
+apps/api/.env
+apps/api/.env.local
+apps/api/.env.*
+!apps/api/.env.example
+
+# Runtime data / logs
+*.log
+apps/api/data/
+apps/api/apps/api/data/
+storage/
+coverage/
+
+# Temp
+.tmp/
+
+# IDE / TypeScript cache
+.idea/
+*.tsbuildinfo

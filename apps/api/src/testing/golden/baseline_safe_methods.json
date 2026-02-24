@@ -1,0 +1,17 @@
+{
+  "report": {
+    "totalTests": 1,
+    "totalErrors": 0,
+    "totalSuspicious": 0
+  },
+  "byType": {
+    "AUTH": {
+      "total": 1,
+      "suspicious": 0,
+      "inconclusive": 1,
+      "error": 0
+    }
+  },
+  "suspiciousFindings": [],
+  "transportErrors": []
+}

@@ -1,0 +1,42 @@
+{
+  "report": {
+    "totalTests": 4,
+    "totalErrors": 4,
+    "totalSuspicious": 0
+  },
+  "byType": {
+    "SQLi": {
+      "total": 4,
+      "suspicious": 0,
+      "inconclusive": 0,
+      "error": 4
+    }
+  },
+  "suspiciousFindings": [],
+  "transportErrors": [
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/products",
+      "error": "[connection_refused] connect ECONNREFUSED 127.0.0.1:9"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/products",
+      "error": "[connection_refused] connect ECONNREFUSED 127.0.0.1:9"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/products",
+      "error": "[connection_refused] connect ECONNREFUSED 127.0.0.1:9"
+    },
+    {
+      "testType": "SQLi",
+      "method": "GET",
+      "path": "/products",
+      "error": "[connection_refused] connect ECONNREFUSED 127.0.0.1:9"
+    }
+  ]
+}
