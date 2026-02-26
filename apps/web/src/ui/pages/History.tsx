@@ -5,6 +5,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   Paper,
   TablePagination,
@@ -77,6 +81,7 @@ export default function History() {
   const [err, setErr] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   const sorted = useMemo(() => {
     return [...scans].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -137,7 +142,6 @@ export default function History() {
   }
 
   async function clearHistory() {
-    if (!confirm("Czy na pewno chcesz usunąć całą historię skanów?")) return;
     setErr("");
     try {
       const res = await fetch(`${API}/api/scans`, { method: "DELETE" });
@@ -149,6 +153,7 @@ export default function History() {
       }
       setScans([]);
       setPage(0);
+      setConfirmClearOpen(false);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     }
@@ -166,7 +171,7 @@ export default function History() {
           <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
             Kliknij skan, aby zobaczyć szczegóły testów i raport bezpieczeństwa.
           </Typography>
-          <Button variant="outlined" color="error" onClick={clearHistory} sx={{ mt: 1.25 }}>
+          <Button variant="outlined" color="error" onClick={() => setConfirmClearOpen(true)} sx={{ mt: 1.25 }}>
             Wyczyść historię
           </Button>
         </Box>
@@ -267,6 +272,46 @@ export default function History() {
           <Typography sx={{ color: "text.secondary" }}>Brak wykonanych skanów.</Typography>
         )}
       </Paper>
+
+      <Dialog
+        open={confirmClearOpen}
+        onClose={() => setConfirmClearOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "#192033",
+            color: "#DDE3F0",
+            borderRadius: 2,
+            minHeight: 220
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: "#FFFFFF", textAlign: "center", pt: 3 }}>
+          Potwierdź usunięcie historii
+        </DialogTitle>
+        <DialogContent sx={{ display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          <Typography sx={{ fontSize: 14, color: "#B7C0D8", maxWidth: 440 }}>
+            Czy na pewno chcesz usunąć całą historię skanów?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "center", pb: 2.5, px: 3 }}>
+          <Button
+            onClick={() => setConfirmClearOpen(false)}
+            variant="outlined"
+            sx={{ color: "#DDE3F0", borderColor: "rgba(221,227,240,0.35)" }}
+          >
+            Anuluj
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={clearHistory}
+            sx={{ color: "#DDE3F0", borderColor: "rgba(221,227,240,0.35)" }}
+          >
+            Tak
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
